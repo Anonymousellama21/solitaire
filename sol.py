@@ -31,10 +31,12 @@ class Solitaire:
         self.clear()
 
     def __str__(self):
-        out = f"{len(self.stock):02d}{str(self.waste[-1]) if self.waste else ' '}   {' '.join(str(i[-1]) if i else ' ' for i in self.foundation)}"
+        out = "d 7   8 9 a b\n"
+        out = out + f"{len(self.stock):02d}{str(self.waste[-1]) if self.waste else ' '}   {' '.join(str(i[-1]) if i else ' ' for i in self.foundation)}"
         max_len = max(map(len, self.tableau))
         for i in range(max_len):
             out = out + '\n' + ' '.join(str(j[i]) if len(j) > i else " " for j in self.tableau)
+        out = out + "\n0 1 2 3 4 5 6"
         return out
 
 
@@ -66,14 +68,16 @@ class Solitaire:
             self.waste.append(self.stock.pop())
             self.waste[-1].up()
 
-        return len(self.waste) > 0
+        return len(self.waste) > 0 # TODO fix this
 
 
     def restock(self): # when the stock is empty and you try to discard again
-        if len(self.waste) > 0:
+        if len(self.stock) > 0:
             return False
 
-        self.stock = [i.down() for i in self.waste[::-1]]
+        self.stock = [i for i in self.waste[::-1]]
+        for i in self.stock:
+            i.down()
         self.waste = []
 
         return len(self.stock) > 0
@@ -140,15 +144,36 @@ class Solitaire:
         return False
 
 
-    def move(self, stack, destination, depth):
+    def move(self, stack, destination, depth=0):
         # stack and destination are 0 - 6 for tableau
         # depth is number of cards to pick up
         # returns True if successful
 
-        if stack < 0 or stack > 6 or destination < 0 or destination > 6 or depth < 1:
+        if stack < 0 or stack > 6 or destination < 0 or destination > 6 or depth > len(self.tableau[stack]):
             return False
 
-        if depth > len(self.tableau[stack]):
+        if depth == 0:
+            # we have to attempt to calculate depth because one was not provided
+            if len(self.tableau[destination]) == 0: # if the destination stack is empty, we need to know how many cards to transfer
+                return False
+
+
+            for i in range(1,len(self.tableau[stack])+1):
+                # stop when a non face up card is reached
+                if not self.tableau[stack][-i].facing:
+                    return False
+
+                # check if this is the valid point to move the stack from
+                if self.tableau[stack][-i].value + 1 == self.tableau[destination][-1].value and self.tableau[stack][-i].color != self.tableau[destination][-1].color:
+                    self.tableau[destination] += self.tableau[stack][-i:]
+                    self.tableau[stack] = self.tableau[stack][:-i]
+
+                    # flip card if needed
+                    if len(self.tableau[stack]) > 0:
+                        self.tableau[stack][-1].up()
+
+                    return True
+
             return False
 
         if len(self.tableau[destination]) == 0 or (self.tableau[destination][-1].value == self.tableau[stack][-depth].value + 1 and self.tableau[destination][-1].color != self.tableau[stack][-depth].color):
@@ -165,18 +190,29 @@ class Solitaire:
 
 
     def move_string(self, string):
-        if string[0] == "d":
-            return self.discard()
-        elif string[0] == "r":
-            return self.restock()
-        elif string[0] == "b":
-            return self.build(int(string[1]))
-        elif string[0] == "p":
-            return self.play(int(string[1]), int(string[2]))
-        elif string[0] == "m":
-            return self.move(int(string[1]), int(string[2]), int(string[3],16))
+        try:
+            if string[0] == "d": # discard / restock
+                if len(self.stock) > 0:
+                    return self.discard()
+                else:
+                    return self.restock()
+            elif len(string) == 1: # build
+                return self.build(int(string))
+            elif len(string) == 2: # play / move (not to empty)
+                stack, dest = int(string[0], 16), int(string[1], 16)
+                if dest > 7: # trying to build, auto move to correct spot
+                    return self.build(stack)
+                elif stack > 6: # play
+                    return self.play((stack - 8) % 5, dest)
+                else: # move
+                    return self.move(stack, dest)
+            elif len(string) == 3:
+                return self.move(int(string[0], 16), int(string[1], 16), int(string[2], 16))
 
-        return False
+            return False
+
+        except:
+            return False
 
 
     def won(self):
