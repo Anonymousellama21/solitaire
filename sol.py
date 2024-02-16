@@ -11,7 +11,7 @@ class Card:
     def __init__(self, number, facing=False): # placement in 52 card set number should be between 0 and 51
         self.value = (number % 13) + 1
         self.suit = number // 13
-        self.color = self.suit % 2
+        self.color = (0,1,1,0)[self.suit] # unicode order is stupid and you cant do mod 2 ;(
         self.facing = facing # False for face down, True for face up
 
     def __str__(self):
